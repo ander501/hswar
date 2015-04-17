@@ -21,14 +21,14 @@ translate = multiply
 
 exp : Float -> Tangent -> Point
 exp t a = let dis = det a
-          in if | dis < 0  -> expComplex t a
+          in if | dis > 0  -> expComplex t a
                 | dis == 0 -> expDegen t a
-                | dis > 0  -> expReal t a
+                | dis < 0  -> expReal t a
 
 expComplex : Float -> Tangent -> Point
-expComplex t a = let lambda = sqrt (-1 * (det a))
+expComplex t a = let lambda = sqrt (det a)
                  in (scale ( cos <| t * lambda) id) 
-                    -+- (scale ( -1 * (sin <| t * lambda)) a) 
+                    -+- (scale ( sin <| t * lambda) a) 
 
 sinh x = 0.5 * ( e^x - e^(-x) )
 cosh x = 0.5 * ( e^x + e^(-x) )
@@ -37,7 +37,7 @@ expDegen : Float -> Tangent -> Point
 expDegen t a = id -+- (scale t a)
 
 expReal : Float -> Tangent -> Point
-expReal t a = let lambda = sqrt (det a)
+expReal t a = let lambda = sqrt (-1 * det a)
               in scale (cosh <| t * lambda) id
                  -+- scale (sinh <| -t * lambda) a
 

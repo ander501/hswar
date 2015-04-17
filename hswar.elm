@@ -2,9 +2,10 @@
 import Char
 import Color
 import Graphics.Element (..)
-import Graphics.Collage
+import Graphics.Collage (..)
 import Keyboard
-import Math.Matrix2 (..)
+import Math.Matrix2 (Matrix2(..), (-+-), (-*-))
+import Math.Matrix2
 import Math.SL2R
 import List
 import Signal
@@ -27,8 +28,6 @@ type alias Direction = { x:Int, y:Int }
 type UserInput = PlayerOne Direction 
                | PlayerTwo Direction 
                | Reset Bool 
-               | PlayerOneFire Bool 
-               | PlayerTwoFire Bool 
 
 
 userInput : Signal UserInput
@@ -36,13 +35,7 @@ userInput =
     Signal.mergeMany [
         Signal.map PlayerOne Keyboard.wasd,
         Signal.map PlayerTwo Keyboard.arrows,
-        Signal.map Reset Keyboard.space,
-        Char.toCode 'e'  
-            |> Keyboard.isDown
-            |> Signal.map PlayerOneFire,
-        Char.toCode '/'
-            |> Keyboard.isDown 
-            |> Signal.map PlayerTwoFire ]
+        Signal.map Reset Keyboard.space]
 
 
 type alias Input =
@@ -75,15 +68,17 @@ type alias Phase = {
 type alias GameState = { 
       firstPlayer : Phase,
       secondPlayer: Phase,
-      shots: List Phase
+      shots: List Phase,
+      keys: List Char
     }
 
 defaultGame : GameState
 defaultGame =
     {
-      firstPlayer = { position = (Matrix2 1 -1 0 1), velocity = (Matrix2 0.1 0 0 -0.1) } ,
-      secondPlayer = { position = (Matrix2 1 1 0 1), velocity = (Matrix2 0 0 0 0) } ,
-      shots = []
+      firstPlayer = { position = (Matrix2 1 -0.5 0 1), velocity = (Matrix2 0 0 0 0) } ,
+      secondPlayer = { position = (Matrix2 1 0.5 0 1), velocity = (Matrix2 0 0 0 0) } ,
+      shots = [],
+      keys = []
     }
 
 
@@ -100,22 +95,52 @@ Task: redefine `stepGame` to use the UserInput and GameState
 
 stepGame : Input -> GameState -> GameState
 stepGame input =
-    move input
+    direct input
+    >> step input
     >> fire input
+    >> friction 0.97
     >> reset input.userInput
 
 stepObject: Float -> Phase -> Phase
-stepObject t { position, velocity } = { position = position -*- Math.SL2R.exp t velocity, velocity = velocity}
+stepObject t { position, velocity }
+    = { position = position -*- Math.SL2R.exp t velocity |> normalize
+      , velocity = velocity}
+      
 
-move : Input -> GameState -> GameState
-move { timeDelta } state  
-    = { state |
-        firstPlayer <- stepObject timeDelta state.firstPlayer,
-        secondPlayer <- stepObject timeDelta state.secondPlayer,
-        shots <- List.map (stepObject timeDelta) state.shots }
+turn : Math.SL2R.Tangent
+turn = Matrix2 0 -0.001 0.001 0
+
+boost : Math.SL2R.Tangent
+boost = Matrix2 -0.001 0 0 0.001
+
+direct : Input -> GameState -> GameState
+direct { userInput } state = 
+    let thrust {x, y} phase 
+            = { phase | velocity <- (Math.Matrix2.scale (toFloat x) turn) 
+                                    -+- (Math.Matrix2.scale (abs <| toFloat y) boost) 
+                                          -+- phase.velocity }
+    in case userInput of
+         PlayerOne direction 
+             -> { state | firstPlayer <- thrust direction state.firstPlayer }
+         PlayerTwo direction
+             -> { state | secondPlayer <- thrust direction state.secondPlayer }
+         _ -> state
+
+mapObjects : (Phase -> Phase) -> GameState -> GameState
+mapObjects f state =
+    { state | 
+              firstPlayer <- f state.firstPlayer,
+              secondPlayer <- f state.secondPlayer,
+              shots <- List.map f state.shots }
+
+step : Input -> GameState -> GameState
+step { timeDelta } = mapObjects <| stepObject timeDelta
+
+friction : Float -> GameState -> GameState
+friction f = mapObjects (\ phase -> { phase | velocity <- Math.Matrix2.scale f phase.velocity})
 
 muzzleVelocity : Phase
-muzzleVelocity = { position = Matrix2 1.125 0 0 (8.0/9.0), velocity = Matrix2 0.1 0 0 -0.1}
+muzzleVelocity = { position = Matrix2 1.05 0 0 (20.0/21.0), velocity = Matrix2 -0.066 0 0 0.066}
 
 fire : Input -> GameState -> GameState
 fire { userInput } = fireChoice userInput
@@ -123,12 +148,17 @@ fire { userInput } = fireChoice userInput
 fireChoice : UserInput -> GameState -> GameState
 fireChoice userInput state = 
     let 
-      createShot player muzzle 
-          = { position = muzzle.position -*- player.position, 
-              velocity = muzzle.velocity -+- player.velocity }
+      createShot {y} player muzzle shots 
+          = if (y == -1) 
+            then
+                { position = player.position -*- muzzle.position, 
+                             velocity = player.velocity -+- muzzle.velocity }
+                :: shots
+            else
+                shots
     in case userInput of
-         PlayerOneFire True -> { state | shots <- (createShot state.firstPlayer muzzleVelocity) :: state.shots}
-         PlayerTwoFire True -> { state | shots <- (createShot state.secondPlayer muzzleVelocity) :: state.shots }
+         PlayerOne direction -> { state | shots <- createShot direction state.firstPlayer muzzleVelocity state.shots }
+         PlayerTwo direction -> { state | shots <- createShot direction state.secondPlayer muzzleVelocity state.shots }
          _             -> state
 
 reset : UserInput -> GameState -> GameState
@@ -136,6 +166,14 @@ reset userInput state =
     case userInput of
       Reset true -> defaultGame
       _ -> state
+
+normalize : Math.SL2R.Point -> Math.SL2R.Point
+normalize p =
+    if (abs(logBase e(Math.Matrix2.det p)) < 2) 
+    then
+        p
+    else
+        Math.Matrix2.scale (1 / sqrt(Math.Matrix2.det p)) p
 
 {-- Part 4: Display the game --------------------------------------------------
 
@@ -153,51 +191,62 @@ display (w,h) gameState =
          world (gameState.secondPlayer.position) gameState,
          world earth gameState] 
         |> List.map (Graphics.Collage.scale s
-             >> \c -> Graphics.Collage.collage (w) (h // 3) [c])
+             >> \c -> collage (w) (h // 3) [c])
         |> flow left
 --}
 
 {--}
 display : (Int, Int) -> GameState -> Element
 display (w, h) gameState =
-    world earth gameState
-       |> Graphics.Collage.scale 10
-             >> (\c -> Graphics.Collage.collage w h [c])
+     [ world earth gameState
+      |> scale (toFloat <| h // 2)
+      >> (\c -> collage w h [c])]
+     |> layers
+    
 --}
+
+shipColor = Color.black
 
 earth : Math.SL2R.Point
 earth = (Matrix2 1 0 0 1)
 
 ship1 : List Math.SL2R.Point 
-ship1 = [ Matrix2 1.05 0 0 (20.0/21.0), Matrix2 (20/21.0) -0.05 0 1.05, Matrix2 (20/21.0) 0.05 0 1.05]
+ship1 = [ Matrix2 1.02 0 0 (50.0/51.0), 
+          Matrix2 (50/51.0) -0.02 0 1.02, 
+          Matrix2 (50/51.0) 0.02 0 1.02]
 
 ship2 : List Math.SL2R.Point 
-ship2 = [ Matrix2 1.05 0 0 (20.0/21.0), Matrix2 (20/21.0) -0.05 0 1.05, Matrix2 1 0 0 1, Matrix2 (20/21.0) 0.05 0 1.05]
+ship2 = [ Matrix2 1.02 0 0 (50.0/51.0), 
+          Matrix2 (50/51.0) -0.02 0 1.02, 
+          Matrix2 0.99 0 0 (100.0/99.0), 
+          Matrix2 (50/51.0) 0.02 0 1.02]
 
 plot : Math.SL2R.Point -> Math.SL2R.Point -> ( Float, Float )
 plot origin p = p -*- (Math.SL2R.inv origin)
               |> Math.SL2R.toPoincareDisc
 
-polygon : Math.SL2R.Point -> Math.SL2R.Point -> List Math.SL2R.Point -> Graphics.Collage.Form
-polygon origin center points
-    = List.map (\ p -> p -*- center) points
+vectorLineStyle = { defaultLine | width <- 0.002, color <- shipColor }
+
+vectorPolygon : Math.SL2R.Point -> Math.SL2R.Point -> List Math.SL2R.Point -> Form
+vectorPolygon origin center points
+    = List.map ((-*-) center) points
         |> List.map (plot origin)
-        |> Graphics.Collage.polygon
-        |> Graphics.Collage.outlined (Graphics.Collage.solid Color.black)
+        |> polygon
+        |> outlined vectorLineStyle
 
-dot : Math.SL2R.Point -> Math.SL2R.Point -> Graphics.Collage.Form
+dot : Math.SL2R.Point -> Math.SL2R.Point -> Form
 dot origin point
-    = Graphics.Collage.circle 0.01        
-       |> Graphics.Collage.filled Color.black 
-       |> Graphics.Collage.move (plot origin point)
+    = circle 0.01        
+       |> filled Color.black 
+       |> move (plot origin point)
 
 
-world : Math.SL2R.Point -> GameState -> Graphics.Collage.Form 
+world : Math.SL2R.Point -> GameState -> Form 
 world origin { firstPlayer, secondPlayer, shots} =
-     ( polygon origin firstPlayer.position ship1 )
-     :: ( polygon origin secondPlayer.position ship2 )
+     ( vectorPolygon origin firstPlayer.position ship1 )
+     :: ( vectorPolygon origin secondPlayer.position ship2 )
      :: List.map (\s -> dot origin s.position) shots
-        |> Graphics.Collage.group
+        |> group
 
 
 {-- That's all folks! ---------------------------------------------------------
@@ -224,8 +273,3 @@ gameState =
 main : Signal Element
 main =
     Signal.map2 display Window.dimensions gameState
-
-
-
-
-
