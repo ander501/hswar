@@ -1,15 +1,16 @@
+module HSWar where 
 
 import Char
 import Color
-import Graphics.Element (..)
-import Graphics.Collage (..)
+import Graphics.Element exposing (..)
+import Graphics.Collage exposing (..)
 import Keyboard
-import Math.Matrix2 (Matrix2(..), (-+-), (-*-))
+import Math.Matrix2 exposing ((-+-), (-*-))
 import Math.Matrix2
 import Math.SL2R
 import List
 import Signal
-import Signal (Signal)
+import Signal exposing (Signal)
 import Text
 import Time
 import Window
@@ -75,8 +76,8 @@ type alias GameState = {
 defaultGame : GameState
 defaultGame =
     {
-      firstPlayer = { position = (Matrix2 1 -0.5 0 1), velocity = (Matrix2 0 0 0 0) } ,
-      secondPlayer = { position = (Matrix2 1 0.5 0 1), velocity = (Matrix2 0 0 0 0) } ,
+      firstPlayer = { position = (1, -0.5, 0, 1), velocity = (0, 0, 0, 0) } ,
+      secondPlayer = { position = (1, 0.5, 0, 1), velocity = (0, 0, 0, 0) } ,
       shots = [],
       keys = []
     }
@@ -103,15 +104,15 @@ stepGame input =
 
 stepObject: Float -> Phase -> Phase
 stepObject t { position, velocity }
-    = { position = position -*- Math.SL2R.exp t velocity |> normalize
+    = { position = position -*- Math.SL2R.exp (Math.Matrix2.scale t velocity) |> normalize
       , velocity = velocity}
       
 
 turn : Math.SL2R.Tangent
-turn = Matrix2 0 -0.001 0.001 0
+turn = (0, -0.0001, 0.0001, 0)
 
 boost : Math.SL2R.Tangent
-boost = Matrix2 -0.001 0 0 0.001
+boost = (0.0001, 0, 0, -0.0001)
 
 direct : Input -> GameState -> GameState
 direct { userInput } state = 
@@ -140,7 +141,9 @@ friction : Float -> GameState -> GameState
 friction f = mapObjects (\ phase -> { phase | velocity <- Math.Matrix2.scale f phase.velocity})
 
 muzzleVelocity : Phase
-muzzleVelocity = { position = Matrix2 1.05 0 0 (20.0/21.0), velocity = Matrix2 -0.066 0 0 0.066}
+muzzleVelocity = {
+  position = (1.05, 0, 0, (20.0/21.0)), 
+  velocity = (0.0006, 0, 0, -0.0006) }
 
 fire : Input -> GameState -> GameState
 fire { userInput } = fireChoice userInput
@@ -208,18 +211,18 @@ display (w, h) gameState =
 shipColor = Color.black
 
 earth : Math.SL2R.Point
-earth = (Matrix2 1 0 0 1)
+earth = (1, 0, 0, 1)
 
 ship1 : List Math.SL2R.Point 
-ship1 = [ Matrix2 1.02 0 0 (50.0/51.0), 
-          Matrix2 (50/51.0) -0.02 0 1.02, 
-          Matrix2 (50/51.0) 0.02 0 1.02]
+ship1 = [ (1.02, 0, 0, 50.0/51.0), 
+           (50/51.0, -0.02, 0, 1.02), 
+          (50/51.0, 0.02, 0, 1.02)]
 
 ship2 : List Math.SL2R.Point 
-ship2 = [ Matrix2 1.02 0 0 (50.0/51.0), 
-          Matrix2 (50/51.0) -0.02 0 1.02, 
-          Matrix2 0.99 0 0 (100.0/99.0), 
-          Matrix2 (50/51.0) 0.02 0 1.02]
+ship2 = [ (1.02, 0, 0, 50.0/51.0), 
+          (50/51.0, -0.02, 0, 1.02), 
+          (0.99, 0, 0, 100.0/99.0), 
+          (50/51.0, 0.02, 0, 1.02)]
 
 plot : Math.SL2R.Point -> Math.SL2R.Point -> ( Float, Float )
 plot origin p = p -*- (Math.SL2R.inv origin)
