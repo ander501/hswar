@@ -73,3 +73,12 @@ distance x y
               = sqrt <|  (a + d)  * ( a + d ) + ( b - c ) * (b - c )
           diagonal tr = tr + (sqrt <| tr * tr + 1)          
       in e ^ (diagonal <| 0.5 * (maxTrace <| y -*- (x |> inv)))
+
+angle : Point -> Point -> Float
+angle x y
+    = let atan1 (a, b, c, d)
+             = atan( ( c - b ) / ( a + d ) )
+          atan2 (a, b, c, d)
+             = atan( ( c + b ) / ( a + d ) )
+          yx' = y -*- (x |> inv)  
+      in 0.5 * ( atan1 yx' + atan2 yx' )
