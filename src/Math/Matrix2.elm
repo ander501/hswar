@@ -2,10 +2,10 @@ module Math.Matrix2 where
 
 type alias Matrix2 = (Float, Float, Float, Float)
 
-m1 -*- m2 = multiply m1 m2
+(-*-) = multiply
 infixl 5 -*-
 
-m1 -+- m2 = add m1 m2
+(-+-) = add
 infixl 9 -+-
 
 add : Matrix2 -> Matrix2 -> Matrix2

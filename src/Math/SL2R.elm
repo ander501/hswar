@@ -21,9 +21,12 @@ translate = multiply
 
 exp : Tangent -> Point
 exp a = let dis = det a
-        in if | dis > 0  -> expComplex a
-              | dis == 0 -> expDegen a
-              | dis < 0  -> expReal a
+        in if (dis > 0) then
+             expComplex a
+           else if (dis < 0) then
+             expReal a
+           else
+             expDegen a
 
 expComplex : Tangent -> Point
 expComplex a = let lambda = sqrt (det a)
@@ -47,9 +50,12 @@ expReal a = let lambda = sqrt (-1 * det a)
 log : Point -> Tangent
 log p
     = let dis (a, b, c, d) = (a + d) * (a + d) 
-      in if | dis p > 4 -> logReal p  
-            | dis p == 4 -> logDegen p  {--@TODO do this for values near 4 --}
-            | dis p < 4 -> logComplex p
+      in if ( dis p > 4 ) then
+           logReal p  
+         else if ( dis p < 4 ) then
+           logComplex p
+         else 
+           logDegen p  {--@TODO do this for values near 4 --}
 
 logReal (a, b, c, d)
     = let lambda = ( a + d )/ 2 + sqrt ( ( (a + d) / 2)^2 - 1 )
