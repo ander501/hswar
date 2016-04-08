@@ -1,5 +1,5 @@
 {
-    "laszlopandy/elm-console": "1.0.2",
-    "deadfoxygrandpa/elm-test": "2.0.0",
-    "elm-lang/core": "2.1.0"
+    "laszlopandy/elm-console": "1.1.1",
+    "deadfoxygrandpa/elm-test": "3.1.1",
+    "elm-lang/core": "3.0.0"
 }
