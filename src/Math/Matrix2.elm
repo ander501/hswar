@@ -1,5 +1,7 @@
 module Math.Matrix2 where
 
+import List
+
 type alias Matrix2 = (Float, Float, Float, Float)
 
 (-*-) = multiply
@@ -26,4 +28,8 @@ norm (a, b, c, d) = a * a + b * b + c * c + d * d
 id : Matrix2
 id = (1, 0, 0, 1)
 
-
+toList : Matrix2 -> List Float
+toList (a, b, c, d) = [a, b, c, d]
+                   
+within : Float -> Matrix2 -> Matrix2 -> Bool
+within t m1 m2 = List.all ( \ x -> x == True ) <| List.map2 ( \ x y -> abs (x - y) < t ) (toList m1) (toList m2) 
