@@ -117,28 +117,28 @@ boost = (0.0001, 0, 0, -0.0001)
 direct : Input -> GameState -> GameState
 direct { userInput } state = 
     let thrust {x, y} phase 
-            = { phase | velocity <- (Math.Matrix2.scale (toFloat x) turn) 
+            = { phase | velocity = (Math.Matrix2.scale (toFloat x) turn) 
                                     -+- (Math.Matrix2.scale (abs <| toFloat y) boost) 
                                           -+- phase.velocity }
     in case userInput of
          PlayerOne direction 
-             -> { state | firstPlayer <- thrust direction state.firstPlayer }
+             -> { state | firstPlayer = thrust direction state.firstPlayer }
          PlayerTwo direction
-             -> { state | secondPlayer <- thrust direction state.secondPlayer }
+             -> { state | secondPlayer = thrust direction state.secondPlayer }
          _ -> state
 
 mapObjects : (Phase -> Phase) -> GameState -> GameState
 mapObjects f state =
     { state | 
-              firstPlayer <- f state.firstPlayer,
-              secondPlayer <- f state.secondPlayer,
-              shots <- List.map f state.shots }
+              firstPlayer = f state.firstPlayer,
+              secondPlayer = f state.secondPlayer,
+              shots = List.map f state.shots }
 
 step : Input -> GameState -> GameState
 step { timeDelta } = mapObjects <| stepObject timeDelta
 
 friction : Float -> GameState -> GameState
-friction f = mapObjects (\ phase -> { phase | velocity <- Math.Matrix2.scale f phase.velocity})
+friction f = mapObjects (\ phase -> { phase | velocity = Math.Matrix2.scale f phase.velocity})
 
 muzzleVelocity : Phase
 muzzleVelocity = {
@@ -160,8 +160,8 @@ fireChoice userInput state =
             else
                 shots
     in case userInput of
-         PlayerOne direction -> { state | shots <- createShot direction state.firstPlayer muzzleVelocity state.shots }
-         PlayerTwo direction -> { state | shots <- createShot direction state.secondPlayer muzzleVelocity state.shots }
+         PlayerOne direction -> { state | shots = createShot direction state.firstPlayer muzzleVelocity state.shots }
+         PlayerTwo direction -> { state | shots = createShot direction state.secondPlayer muzzleVelocity state.shots }
          _             -> state
 
 reset : UserInput -> GameState -> GameState
@@ -228,7 +228,7 @@ plot : Math.SL2R.Point -> Math.SL2R.Point -> ( Float, Float )
 plot origin p = p -*- (Math.SL2R.inv origin)
               |> Math.SL2R.toPoincareDisc
 
-vectorLineStyle = { defaultLine | width <- 0.002, color <- shipColor }
+vectorLineStyle = { defaultLine | width = 0.002, color = shipColor }
 
 vectorPolygon : Math.SL2R.Point -> Math.SL2R.Point -> List Math.SL2R.Point -> Form
 vectorPolygon origin center points
